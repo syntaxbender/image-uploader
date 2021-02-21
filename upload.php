@@ -85,44 +85,52 @@ function uploadDoneContainer(index){
 	return uploadDefDiv;
 }
 function uploadImage(method, url, parameters = {}, isSync,num){
-	$.ajax({
-		xhr: function() {
-			var xhr = new window.XMLHttpRequest();
-			xhr.upload.addEventListener("progress", function(evt) {
-				if (evt.lengthComputable){
-					var percentComplete = ((evt.loaded / evt.total) * 100);
-					$(".resimyukle:nth-of-type("+(num+1)+")").html('<div class="yuzdelik">'+Math.round(percentComplete)+'%</div>');
-				}
-			}, false);
-			return xhr;
-		},
-		type: method,
-		data: parameters,
-		url: url,
-		processData: false,
-		contentType: false,
-		async: isSync,
-		success : function(e){
-			uploadDone(true,num,e);
-		},
-		error : function(e){
-			uploadDone(false,num,e);
+	var r = new XMLHttpRequest();
+	r.open(method, url, true);
+	r.upload.addEventListener("progress", function(evt){
+		if (evt.lengthComputable){
+			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[num];
+
+			var percentComplete = ((evt.loaded / evt.total) * 100);
+			imgdiv.innerHTML = "<div class=\"uploadPercentage\"><img class=\"circle-img\" src=\"./assets/img/circle.svg\">"+Math.round(percentComplete)+"%</div>";
 		}
-	});
+	}, false);
+	r.onreadystatechange = function () {
+		if (this.readyState == 4){
+			if(this.status == 200){
+				uploadDone(true,num,this.responseText);
+			}else{
+				uploadDone(false,num,"hata");
+			} 
+		} 
+	};
+	r.send(parameters);
 }
-function uploadDone(status, id, data){
+function uploadDone(status, index, data){
 	var data = JSON.parse(data);
 	if(status === true && data[0] === true){
-		uploads[id] = data[1];
+		uploads[index] = data[1];
 	}
-	current_uploads.splice(current_uploads.indexOf(id), 1);
-	$(".resimyukle:nth-of-type("+(id+1)+")").html(uploadDoneContainerx.innerHTML);
+	current_uploads.splice(current_uploads.indexOf(index), 1);
+	let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[index];
+	imgdiv.innerHTML = uploadDoneContainer(index).innerHTML;
+	//$(".resimyukle:nth-of-type("+(index+1)+")").html(uploadDoneContainerx.innerHTML);
+
 	if(current_uploads.length<1){
 		lock=false;
-		$("div#yuklemebutonu").html("Yükle");
-		$("div.resimyolla").css("border-color","#34b100");
-		$("div.resimyolla").css("color","#34b100");
-		$("div.resimyukle input").prop("disabled", false);
+		let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
+		uploadbutton.removeAttribute("style");
+		//uploadbutton.setAttribute("style", "background:#848484; color:rgb(204 204 204);");
+		uploadbutton.querySelector("span").innerHTML = "Yükle";
+		let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
+
+		for(let i=0; i<imgdiv.length; i++){
+			let currentinput = imgdiv[i].querySelector("input"); 
+			if(currentinput != null) currentinput.setAttribute("disabled", false);
+		}
+		//$("div.resimyolla").css("border-color","#34b100");
+		//$("div.resimyolla").css("color","#34b100");
+		//$("div.resimyukle input").prop("disabled", false);
 	}
 }
 function showimage(element,data,filetype){
@@ -187,10 +195,17 @@ window.addEventListener('load', event => {
 				lock = true;
 				// uploadButtonBox
 				let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
-
-				uploadbutton.getElementsByTagName("span").html("...");
-				uploadbutton.css("border-color","#aba1a1");
-				uploadbutton.css("color","#aba1a1");
+				uploadbutton.setAttribute("style", "background:#848484; color:rgb(204 204 204);");
+				uploadbutton.querySelector("span").innerHTML = "...";
+				//uploadbutton.style.borderColor = "#aba1a1";
+				//uploadbutton.removeAttribute("style");
+				let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
+				for(let i=0; i<imgdiv.length; i++){
+					let currentinput = imgdiv[i].querySelector("input"); 
+					if(currentinput != null) currentinput.setAttribute("disabled", true);
+					console.log(imgdiv[i]);
+					console.log(imgdiv[i].querySelector("input"));
+				}
 				//$("div.resimyukle input").prop("disabled", true);
 			}
 		}else if(event.target.closest(".deleteImage")){
@@ -209,15 +224,6 @@ window.addEventListener('load', event => {
 		}
 	});
 	// uploads değişkeninde yüklenen fotiler saklanıyor..
-
-	/*$(document).on('click', 'div.resimyolla', function(){
-
-	});
-	$(document).on('click', 'div.resimsil', function(){
-
-	});
-	$(document).on('change', 'div.sbImageContainer > div.sbImage input', function(){
-
-	});*/
+	// register fonku ekle uploaddone fonku içinde çağırılsın.
 });
 </script>
