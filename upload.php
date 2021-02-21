@@ -21,7 +21,6 @@ function uploadStartButton(text){
 	uploadStartIcon.setAttribute("src","./assets/img/upload.svg");
 	let uploadStartTextSpan = document.createElement("span");
 	uploadStartTextSpan.innerHTML = text;
-
 	let uploadButtonBox = document.createElement("div");
 	uploadButtonBox.setAttribute("class","uploadButtonBox");
 	uploadButtonBox.appendChild(uploadStartIcon);
@@ -44,11 +43,6 @@ function uploadDefContainer(index){
 	return uploadDefDiv;
 }
 function uploadImageChoosedContainer(index){
-	/*
-	<div class="resimsil">
-		<img src="./assets/img/cancel.svg">
-	</div>
-	*/
 	let deleteIcon = document.createElement("img");
 	deleteIcon.setAttribute("src","./assets/img/cancel.svg");
 	let deleteIconDiv = document.createElement("div");
@@ -61,12 +55,6 @@ function uploadImageChoosedContainer(index){
 	return uploadDefDiv;
 }
 function uploadDoneContainer(index){
-	/*'<div class="uploadbasarili">\
-		<img src="./assets/img/done.svg">\
-	</div>\
-	<div class="resimsil">\
-		<img src="./assets/img/cancel.svg">\
-	</div>';*/
 	let doneIcon = document.createElement("img");
 	doneIcon.setAttribute("src","./assets/img/done.svg");
 	let deleteIcon = document.createElement("img");
@@ -85,17 +73,9 @@ function uploadDoneContainer(index){
 	return uploadDefDiv;
 }
 function uploadImage(method, url, parameters = {}, isSync,num){
-	var r = new XMLHttpRequest();
-	r.open(method, url, true);
-	r.upload.addEventListener("progress", function(evt){
-		if (evt.lengthComputable){
-			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[num];
-
-			var percentComplete = ((evt.loaded / evt.total) * 100);
-			imgdiv.innerHTML = "<div class=\"uploadPercentage\"><img class=\"circle-img\" src=\"./assets/img/circle.svg\">"+Math.round(percentComplete)+"%</div>";
-		}
-	}, false);
-	r.onreadystatechange = function () {
+	var xhr = new XMLHttpRequest();
+	xhr.open(method, url, true);
+	xhr.onreadystatechange = function () {
 		if (this.readyState == 4){
 			if(this.status == 200){
 				uploadDone(true,num,this.responseText);
@@ -104,7 +84,14 @@ function uploadImage(method, url, parameters = {}, isSync,num){
 			} 
 		} 
 	};
-	r.send(parameters);
+	xhr.send(parameters);
+	xhr.upload.addEventListener("progress", function(evt){
+		if (evt.lengthComputable){
+			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[num];
+			var percentComplete = ((evt.loaded / evt.total) * 100);
+			imgdiv.innerHTML = "<div class=\"uploadPercentage\"><img class=\"circle-img\" src=\"./assets/img/circle.svg\">"+Math.round(percentComplete)+"%</div>";
+		}
+	}, false);
 }
 function uploadDone(status, index, data){
 	var data = JSON.parse(data);
@@ -114,30 +101,25 @@ function uploadDone(status, index, data){
 	current_uploads.splice(current_uploads.indexOf(index), 1);
 	let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[index];
 	imgdiv.innerHTML = uploadDoneContainer(index).innerHTML;
-	//$(".resimyukle:nth-of-type("+(index+1)+")").html(uploadDoneContainerx.innerHTML);
-
 	if(current_uploads.length<1){
 		lock=false;
 		let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
 		uploadbutton.removeAttribute("style");
-		//uploadbutton.setAttribute("style", "background:#848484; color:rgb(204 204 204);");
 		uploadbutton.querySelector("span").innerHTML = "Yükle";
 		let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
 
 		for(let i=0; i<imgdiv.length; i++){
 			let currentinput = imgdiv[i].querySelector("input"); 
-			if(currentinput != null) currentinput.setAttribute("disabled", false);
+			if(currentinput != null) currentinput.removeAttribute("disabled");
 		}
-		//$("div.resimyolla").css("border-color","#34b100");
-		//$("div.resimyolla").css("color","#34b100");
-		//$("div.resimyukle input").prop("disabled", false);
 	}
 }
 function showimage(element,data,filetype){
 	let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
 	imgdiv[element].innerHTML = uploadImageChoosedContainer(element).innerHTML;
 	let blob = new Blob([data], {type: filetype});
-	imgdiv[element].style.background = "url(\""+URL.createObjectURL(blob)+"\") no-repeat center center";
+	imgdiv[element].setAttribute("style","background:url(\""+URL.createObjectURL(blob)+"\") no-repeat center center;")
+	//imgdiv[element].style.background = "";
 	var client_files = 0;
 	for(i in resimler){
 		if(resimler[i] != null) client_files = client_files + 1;
@@ -158,22 +140,18 @@ function generateContainer(num,text){
 window.addEventListener('load', event => {
 	generateContainer(5,"Yükle");
 	window.addEventListener('change', event => {
-		if(lock===true) return;
-		if (event.target.files && event.target.files[0]) {
-
-			//let reader = new FileReader();
-			//reader.readAsDataURL(event.target.files[0]);
-			let img_index = event.target.getAttribute("data-index");
-			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[img_index];
-			var file = event.target.files[0];
-			if(file.type == "image/gif" || file.type == "image/jpeg" || file.type == "image/png" || file.type == "image/bmp"){
-				resimler[img_index] = file;
-				showimage(img_index,file,file.type);
-
-				//reader.onload = function(e){
-				//}
-			}else{
-				alert("Yalnızca jpeg, gif, bmp ve png türüne sahip dosyalar yükleyebilirsiniz.");
+		if(event.target.closest("div.sbImageContainer > div.imgPreview input")){
+			let input = event.target.closest("div.sbImageContainer > div.imgPreview input");
+			if(lock===true) return;
+			if (input.files && input.files[0]){
+				const index = input.getAttribute("data-index");
+				let file = input.files[0];
+				if(file.type == "image/gif" || file.type == "image/jpeg" || file.type == "image/png" || file.type == "image/bmp"){
+					resimler[index] = file;
+					showimage(index,file,file.type);
+				}else{
+					alert("Yalnızca jpeg, gif, bmp ve png türüne sahip dosyalar yükleyebilirsiniz.");
+				}
 			}
 		}
 	});
@@ -181,9 +159,8 @@ window.addEventListener('load', event => {
 		if(event.target.closest(".uploadButtonBox")){
 			if(lock === true) return;
 			var isEmpty = true;
-			for(var i=0;i<resimler.length;i++){
+			for(let i in resimler){
 				if(resimler != null && resimler[i] != null){
-					//console.log(resimler[i]);
 					let formData = new FormData();
 					formData.append('image', resimler[i]);
 					current_uploads.push(i);
@@ -193,12 +170,9 @@ window.addEventListener('load', event => {
 			}
 			if(isEmpty===false){
 				lock = true;
-				// uploadButtonBox
 				let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
 				uploadbutton.setAttribute("style", "background:#848484; color:rgb(204 204 204);");
 				uploadbutton.querySelector("span").innerHTML = "...";
-				//uploadbutton.style.borderColor = "#aba1a1";
-				//uploadbutton.removeAttribute("style");
 				let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
 				for(let i=0; i<imgdiv.length; i++){
 					let currentinput = imgdiv[i].querySelector("input"); 
@@ -206,21 +180,17 @@ window.addEventListener('load', event => {
 					console.log(imgdiv[i]);
 					console.log(imgdiv[i].querySelector("input"));
 				}
-				//$("div.resimyukle input").prop("disabled", true);
 			}
 		}else if(event.target.closest(".deleteImage")){
 			if(lock===true) return;
-			let img_indexx = event.target.closest(".deleteImage").getAttribute("data-index");
+			let index = event.target.closest(".deleteImage").getAttribute("data-index");
+			resimler.splice(index, 1);
 
-			//var img_index = $(this).parent().index()-1;
-			delete resimler[img_indexx];
-			if(uploads != null && uploads[img_indexx] != null) delete uploads[img_indexx];
-			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[img_indexx];
+			//delete resimler[index];
+			if(uploads != null && uploads[index] != null) delete uploads[index];
+			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[index];
 			imgdiv.removeAttribute("style");
-			imgdiv.innerHTML = uploadDefContainer(img_indexx).innerHTML;
-			//$(this).parent().html(uploadDefContainer.innerHTML);
-		}else if(event.target.closest("div.sbImageContainer > div.imgPreview input")){
-
+			imgdiv.innerHTML = uploadDefContainer(index).innerHTML;
 		}
 	});
 	// uploads değişkeninde yüklenen fotiler saklanıyor..
