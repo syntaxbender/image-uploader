@@ -11,9 +11,9 @@ exit();
 
 </div>
 <script>
-var resimler = [];
-var current_uploads = [];
-var uploads = [];
+var resimler = {}; // dosylar fiziksel olarak tutuluyor.
+var current_uploads = {}; // anlık olarak aktif yüklemeler saklanıyor.
+var uploads = []; // yüklenenler totalde saklanıyor.
 var lock = false;
 
 function uploadStartButton(text){
@@ -27,7 +27,6 @@ function uploadStartButton(text){
 	uploadButtonBox.appendChild(uploadStartTextSpan);
 	return uploadButtonBox;
 }
-
 function uploadDefContainer(index){
 	let addIcon = document.createElement("img");
 	addIcon.setAttribute("src","./assets/img/add.svg");
@@ -85,33 +84,32 @@ function uploadImage(method, url, parameters = {}, isSync,num){
 		} 
 	};
 	xhr.send(parameters);
-	xhr.upload.addEventListener("progress", function(evt){
-		if (evt.lengthComputable){
+	xhr.upload.addEventListener("progress", function(e){
+		if (e.lengthComputable){
 			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[num];
-			var percentComplete = ((evt.loaded / evt.total) * 100);
+			var percentComplete = ((e.loaded/e.total)*100);
 			imgdiv.innerHTML = "<div class=\"uploadPercentage\"><img class=\"circle-img\" src=\"./assets/img/circle.svg\">"+Math.round(percentComplete)+"%</div>";
 		}
 	}, false);
+}
+function deleteImage(index){
+	delete resimler[index];
+	if(uploads != null && uploads[index] != null) delete uploads[index];
+	let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[index];
+	imgdiv.removeAttribute("style");
+	imgdiv.innerHTML = uploadDefContainer(index).innerHTML;
 }
 function uploadDone(status, index, data){
 	var data = JSON.parse(data);
 	if(status === true && data[0] === true){
 		uploads[index] = data[1];
 	}
-	current_uploads.splice(current_uploads.indexOf(index), 1);
+	delete current_uploads[index];
+	//current_uploads.splice(current_uploads.indexOf(index), 1);
 	let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[index];
 	imgdiv.innerHTML = uploadDoneContainer(index).innerHTML;
-	if(current_uploads.length<1){
-		lock=false;
-		let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
-		uploadbutton.removeAttribute("style");
-		uploadbutton.querySelector("span").innerHTML = "Yükle";
-		let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
-
-		for(let i=0; i<imgdiv.length; i++){
-			let currentinput = imgdiv[i].querySelector("input"); 
-			if(currentinput != null) currentinput.removeAttribute("disabled");
-		}
+	if(Object.keys(current_uploads).length<1){
+		uploadLock(false);
 	}
 }
 function showimage(element,data,filetype){
@@ -119,11 +117,7 @@ function showimage(element,data,filetype){
 	imgdiv[element].innerHTML = uploadImageChoosedContainer(element).innerHTML;
 	let blob = new Blob([data], {type: filetype});
 	imgdiv[element].setAttribute("style","background:url(\""+URL.createObjectURL(blob)+"\") no-repeat center center;")
-	//imgdiv[element].style.background = "";
-	var client_files = 0;
-	for(i in resimler){
-		if(resimler[i] != null) client_files = client_files + 1;
-	}
+	var client_files = Object.keys(resimler).length;
 	if(client_files==imgdiv.length){
 		if(client_files == 10) return;
 		imgdiv[imgdiv.length-1].insertAdjacentHTML("afterend",uploadDefContainer(imgdiv.length).outerHTML);
@@ -131,21 +125,42 @@ function showimage(element,data,filetype){
 }
 function generateContainer(num,text){
 	let buffer = "";
-	for (let i = 0; i < num; i++){
+	for (let i=0; i<num; i++){
 		buffer += uploadDefContainer(i).outerHTML;
 	}
 	buffer += uploadStartButton(text).outerHTML;
-	let sbimage = document.querySelector(".sbImageContainer").innerHTML = buffer;
+	let sbimage = document.querySelector("div.sbImageContainer").innerHTML = buffer;
+}
+function uploadLock(status){
+	if(status===true){
+		lock = true;
+		let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
+		uploadbutton.setAttribute("style", "background:#848484; color:rgb(204 204 204);");
+		uploadbutton.querySelector("span").innerHTML = "...";
+		let input = document.querySelectorAll("div.sbImageContainer > div.imgPreview input");
+		for(let i=0; i<input.length; i++){
+			input[i].setAttribute("disabled", true);
+		}
+	}else{
+		lock=false;
+		let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
+		uploadbutton.removeAttribute("style");
+		uploadbutton.querySelector("span").innerHTML = "Yükle";
+		let input = document.querySelectorAll("div.sbImageContainer > div.imgPreview input");
+		for(let i=0; i<input.length; i++){
+			input[i].removeAttribute("disabled");
+		}
+	}
 }
 window.addEventListener('load', event => {
 	generateContainer(5,"Yükle");
 	window.addEventListener('change', event => {
 		if(event.target.closest("div.sbImageContainer > div.imgPreview input")){
-			let input = event.target.closest("div.sbImageContainer > div.imgPreview input");
+			const input = event.target.closest("div.sbImageContainer > div.imgPreview input");
 			if(lock===true) return;
 			if (input.files && input.files[0]){
 				const index = input.getAttribute("data-index");
-				let file = input.files[0];
+				const file = input.files[0];
 				if(file.type == "image/gif" || file.type == "image/jpeg" || file.type == "image/png" || file.type == "image/bmp"){
 					resimler[index] = file;
 					showimage(index,file,file.type);
@@ -156,44 +171,24 @@ window.addEventListener('load', event => {
 		}
 	});
 	window.addEventListener('click', event => {
-		if(event.target.closest(".uploadButtonBox")){
+		if(event.target.closest("div.sbImageContainer > div.uploadButtonBox")){
 			if(lock === true) return;
-			var isEmpty = true;
+			let isEmpty = true;
 			for(let i in resimler){
-				if(resimler != null && resimler[i] != null){
-					let formData = new FormData();
-					formData.append('image', resimler[i]);
-					current_uploads.push(i);
-					uploadImage("POST", "./upload.php",formData, true, i);
-					isEmpty=false;
-				}
+				let formData = new FormData();
+				formData.append('image', resimler[i]);
+				current_uploads[i] = true;
+				uploadImage("POST", "./upload.php",formData, true, i); // beri bak
+				isEmpty=false;
 			}
-			if(isEmpty===false){
-				lock = true;
-				let uploadbutton = document.querySelector("div.sbImageContainer > div.uploadButtonBox");
-				uploadbutton.setAttribute("style", "background:#848484; color:rgb(204 204 204);");
-				uploadbutton.querySelector("span").innerHTML = "...";
-				let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview");
-				for(let i=0; i<imgdiv.length; i++){
-					let currentinput = imgdiv[i].querySelector("input"); 
-					if(currentinput != null) currentinput.setAttribute("disabled", true);
-					console.log(imgdiv[i]);
-					console.log(imgdiv[i].querySelector("input"));
-				}
-			}
-		}else if(event.target.closest(".deleteImage")){
+			if(isEmpty===false)
+				uploadLock(true);
+		}else if(event.target.closest("div.sbImageContainer > div.imgPreview > div.deleteImage")){
 			if(lock===true) return;
-			let index = event.target.closest(".deleteImage").getAttribute("data-index");
-			resimler.splice(index, 1);
-
-			//delete resimler[index];
-			if(uploads != null && uploads[index] != null) delete uploads[index];
-			let imgdiv = document.querySelectorAll("div.sbImageContainer > div.imgPreview")[index];
-			imgdiv.removeAttribute("style");
-			imgdiv.innerHTML = uploadDefContainer(index).innerHTML;
+			const index = event.target.closest(".deleteImage").getAttribute("data-index");
+			deleteImage(index);
 		}
 	});
-	// uploads değişkeninde yüklenen fotiler saklanıyor..
 	// register fonku ekle uploaddone fonku içinde çağırılsın.
 });
 </script>
