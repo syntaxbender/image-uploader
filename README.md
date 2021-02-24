@@ -7,7 +7,7 @@ First import javascript file.
 <script type="text/javascript" src="assets/js/sbImageUploader.js"></script>
 ```
 
-Add textbox area inside body tags.
+Add image container div inside body tags.
 ```html
 <body>
 ...
